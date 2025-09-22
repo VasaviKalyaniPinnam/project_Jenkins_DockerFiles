@@ -1,0 +1,62 @@
+version: "3.9"
+
+services:
+  db:
+    image: mysql:8.0
+    container_name: fileshare-db
+    restart: always
+    environment:
+      MYSQL_DATABASE: filesharingdb
+      MYSQL_ROOT_PASSWORD: Madhu@12
+    ports:
+      - "3308:3306"  # host 3308 -> container 3306
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - fileshare-net
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-pMadhu@12"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: .                           # current folder
+      dockerfile: Dockerfile.backend       # external Dockerfile
+    container_name: fileshare-backend
+    restart: always
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/filesharingdb
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: Madhu@12
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8085:8080"  # host 8085 -> container 8080
+    networks:
+      - fileshare-net
+
+  frontend:
+    build:
+      context: .                           # current folder
+      dockerfile: Dockerfile.frontend      # external Dockerfile
+    container_name: fileshare-frontend
+    restart: always
+    ports:
+      - "8084:80"   # host 8084 -> container 80
+    depends_on:
+      - backend
+    networks:
+      - fileshare-net
+    environment:
+      REACT_APP_API_URL: http://backend:8080
+
+volumes:
+  db_data:
+
+networks:
+  fileshare-net:
+    driver: bridge
